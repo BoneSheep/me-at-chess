@@ -1,0 +1,70 @@
+name: Was this Ruben?
+
+# Actions -> "Was this Ruben?" -> Run workflow (works from the GitHub mobile app).
+# Paste a PGN, or give a chess.com username to check their latest games.
+# The verdict appears in the run summary.
+on:
+  workflow_dispatch:
+    inputs:
+      pgn:
+        description: "PGN of the game(s) (leave empty when using a username)"
+        default: ""
+      chesscom_user:
+        description: "…or a chess.com username: check their latest games"
+        default: ""
+      last:
+        description: "How many latest games"
+        default: "5"
+      model_tag:
+        description: "Model release tag"
+        default: "model-20261111-run2-rapid-lr3e-5"
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.model_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install --no-deps maia2==0.10.0
+          pip install -e .
+      - uses: actions/cache@v4
+        with:
+          path: maia2_models
+          key: maia2-weights-v1
+      - name: Get model (+ calibrated threshold)
+        run: |
+          gh release download "$TAG" --pattern me_at_chess.pt -D models
+          if ! gh release download "$TAG" --pattern detector.json -D models; then
+            echo "No calibration in this release, calibrating now on held-out games…"
+            mac-dataset --raw data/raw --out data/processed/positions.csv.gz
+            mac-detect calibrate
+          fi
+      - name: Check
+        env:
+          PGN: ${{ inputs.pgn }}
+          CC_USER: ${{ inputs.chesscom_user }}
+          LAST: ${{ inputs.last }}
+        run: |
+          if [ -n "$CC_USER" ]; then
+            mac-detect check --chesscom-user "$CC_USER" --last "$LAST" > result.md
+          else
+            printf '%s\n' "$PGN" | mac-detect check - > result.md
+          fi
+          {
+            echo "## Was this Ruben?"
+            cat result.md
+            echo
+            echo "Calibration (held-out games):"
+            echo '```'; cat models/detector.json; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat result.md

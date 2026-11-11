@@ -26,6 +26,17 @@ Everything heavy runs on GitHub Actions:
 
 The latest results are in [`reports/latest.md`](reports/latest.md).
 
+## Was this Ruben?
+
+Given a game, `mac-detect` checks for each side whether the moves look like Ruben's.
+For every move it compares the log-probability under Ruben's fine-tuned model with
+the log-probability under stock Maia-2. The average difference is the score, and a
+threshold calibrated on held-out games turns it into a verdict.
+
+From your phone: **Actions → "Was this Ruben?" → Run workflow**, then paste a PGN or
+enter a chess.com username. Locally: `mac-detect check game.pgn` or
+`mac-detect check --chesscom-user BoneSheep --last 5`.
+
 ## Use the model locally
 
 ```bash
@@ -51,6 +62,7 @@ src/me_at_chess/
   model.py            Maia-2 loading / encoding / prediction
   finetune.py         training loop + report
   uci.py, play.py     the bot
+  detect.py           "was this Ruben?" style detection
 data/raw/             games (committed)
 reports/              training reports (committed by the workflow)
 ```

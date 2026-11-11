@@ -31,6 +31,7 @@ mac-dataset = "me_at_chess.dataset:main"
 mac-finetune = "me_at_chess.finetune:main"
 mac-uci = "me_at_chess.uci:main"
 mac-play = "me_at_chess.play:main"
+mac-detect = "me_at_chess.detect:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

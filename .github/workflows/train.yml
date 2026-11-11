@@ -92,13 +92,19 @@ jobs:
             --max-minutes 290 --out models/me_at_chess.pt --report reports/latest.md
           cat reports/latest.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Calibrate "was this Ruben?" detector
+        if: ${{ github.event_name == 'schedule' || inputs.train }}
+        run: |
+          mac-detect calibrate --out models/detector.json
+          { echo; echo "## Detector calibration"; echo '```'; cat models/detector.json; echo '```'; } | tee -a reports/latest.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish model as a release
         if: ${{ github.event_name == 'schedule' || inputs.train }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="model-$(date -u +%Y%m%d)-run${{ github.run_number }}-${BASE}-lr${LR}"
-          gh release create "$tag" models/me_at_chess.pt reports/latest.json \
+          gh release create "$tag" models/me_at_chess.pt models/detector.json reports/latest.json \
             --title "Model $tag" --notes-file reports/latest.md
           # Commit the report on top of the newest main (parallel runs may have pushed meanwhile).
           cp reports/latest.md /tmp/report.md; cp reports/latest.json /tmp/report.json
