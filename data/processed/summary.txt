@@ -1,0 +1,6 @@
+games used: 2026  (skipped variants: 0, not Ruben: 0)
+positions: 68835  (train 62164, val 6671)
+games by source: chesscom=2026
+games by time class: blitz=1074, rapid=946, bullet=6
+rating range: 902–1562 (median 1241)
+date range: 2020.07.22 → 2026.09.21
