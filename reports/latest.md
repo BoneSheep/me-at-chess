@@ -14,5 +14,5 @@ All three fine-tunes land within 0.5 pp of each other: the gain (+8 pp) comes fr
 personal data, not the hyper-parameters. Validation loss bottoms out after 1–2 epochs,
 so more epochs don't help with ~2k games; more games (or OTB games) would.
 
-Default model (`gh release download` → latest): **model-20261111-run2-rapid-lr3e-5**.
+Default model (download by tag, see README): **model-20261111-run2-rapid-lr3e-5**.
 Per-run details: [`reports/runs/`](runs/).

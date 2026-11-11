@@ -33,7 +33,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
 pip install --no-deps maia2==0.10.0 && pip install -e ".[dev]"
 
-gh release download --pattern me_at_chess.pt -D models     # latest trained model
+gh release download model-20261111-run2-rapid-lr3e-5 --pattern me_at_chess.pt -D models  # best model, see reports/latest.md
 mac-play                                                   # play against yourself
 mac-play --fen "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3"
 mac-uci --temperature 0.3                                  # UCI engine
