@@ -1,17 +1,18 @@
-# Fine-tuning report
+# Latest results (2026-11-11)
 
-Base model: Maia-2 **rapid** · train positions 18050 · val positions 1950
-Time classes: all · lr 3e-05 · completed · 8 min
+Validation: Ruben's 203 most recent games (6,671 positions), never seen in training.
+"Move-match" = how often the model's top move is the move Ruben actually played.
 
-| model | move-match acc | top-3 acc | NLL |
-|---|---|---|---|
-| Maia-2 base | 47.0% | 76.5% | 1.600 |
-| fine-tuned (epoch 2) | 53.8% | 81.5% | 1.405 |
+| run | base | lr | best epoch | move-match | top-3 | NLL | release |
+|---|---|---|---|---|---|---|---|
+| Maia-2 out of the box | rapid | – | – | 47.8% | 75.9% | 1.612 | – |
+| **fine-tuned ⭐** | rapid | 3e-5 | 2 | **56.1%** | 81.4% | 1.383 | `model-20261111-run2-rapid-lr3e-5` |
+| fine-tuned | rapid | 1e-4 | 2 | 55.9% | 81.6% | 1.382 | `model-20261111-run3-rapid-lr1e-4` |
+| fine-tuned | blitz | 1e-4 | 1 | 55.6% | 82.0% | 1.378 | `model-20261111-run4-blitz-lr1e-4` |
 
-Validation = your most recent games, never seen in training.
+All three fine-tunes land within 0.5 pp of each other: the gain (+8 pp) comes from the
+personal data, not the hyper-parameters. Validation loss bottoms out after 1–2 epochs,
+so more epochs don't help with ~2k games; more games (or OTB games) would.
 
-| epoch | train loss | val acc | val top-3 | val NLL |
-|---|---|---|---|---|
-| 0 | – | 0.4697 | 0.7651 | 1.6005 |
-| 1 | 1.5280 | 0.5390 | 0.8154 | 1.4173 |
-| 2 | 1.4229 | 0.5385 | 0.8154 | 1.4048 |
+Default model (`gh release download` → latest): **model-20261111-run2-rapid-lr3e-5**.
+Per-run details: [`reports/runs/`](runs/).
