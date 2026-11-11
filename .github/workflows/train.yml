@@ -1,0 +1,114 @@
+name: Fetch games & train
+
+# Runs weekly to pick up new chess.com games, and on demand from the
+# Actions tab (works from the GitHub mobile app too: Actions -> this
+# workflow -> Run workflow).
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Maia-2 base model"
+        type: choice
+        options: [rapid, blitz]
+        default: rapid
+      epochs:
+        description: "Max epochs"
+        default: "8"
+      lr:
+        description: "Learning rate"
+        default: "3e-5"
+      time_classes:
+        description: "Only these time classes (comma list, empty = all)"
+        default: ""
+      max_positions:
+        description: "Subsample positions for a quick run (0 = all)"
+        default: "0"
+      train:
+        description: "Train after fetching"
+        type: boolean
+        default: true
+  schedule:
+    - cron: "17 3 * * 1"  # Mondays 03:17 UTC
+
+permissions:
+  contents: write
+
+concurrency:
+  group: train
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      BASE: ${{ inputs.base || 'rapid' }}
+      EPOCHS: ${{ inputs.epochs || '8' }}
+      LR: ${{ inputs.lr || '3e-5' }}
+      TIME_CLASSES: ${{ inputs.time_classes || '' }}
+      MAX_POSITIONS: ${{ inputs.max_positions || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install --no-deps maia2==0.10.0
+          pip install -e .
+
+      - name: Fetch chess.com games (BoneSheep)
+        run: mac-fetch --user BoneSheep --out data/raw/chesscom
+
+      - name: Build dataset
+        run: |
+          mac-dataset --raw data/raw --out data/processed/positions.csv.gz
+          { echo "## Dataset"; echo '```'; cat data/processed/summary.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit new games
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/raw data/processed/summary.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "data: update games [skip ci]"
+            git pull --rebase origin main && git push origin HEAD:main
+          fi
+
+      - name: Cache Maia-2 weights
+        if: ${{ github.event_name == 'schedule' || inputs.train }}
+        uses: actions/cache@v4
+        with:
+          path: maia2_models
+          key: maia2-weights-v1
+
+      - name: Fine-tune
+        if: ${{ github.event_name == 'schedule' || inputs.train }}
+        run: |
+          mac-finetune --base "$BASE" --epochs "$EPOCHS" --lr "$LR" \
+            --time-classes "$TIME_CLASSES" --max-positions "$MAX_POSITIONS" \
+            --max-minutes 290 --out models/me_at_chess.pt --report reports/latest.md
+          cat reports/latest.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish model as a release
+        if: ${{ github.event_name == 'schedule' || inputs.train }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="model-$(date -u +%Y%m%d)-run${{ github.run_number }}"
+          gh release create "$tag" models/me_at_chess.pt reports/latest.json \
+            --title "Model $tag ($BASE)" --notes-file reports/latest.md --latest
+          git add reports
+          git commit -m "reports: $tag [skip ci]" || true
+          git pull --rebase origin main && git push origin HEAD:main
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: model-and-report
+          path: |
+            models/
+            reports/
+          if-no-files-found: ignore
