@@ -13,7 +13,7 @@ on:
         default: rapid
       epochs:
         description: "Max epochs"
-        default: "8"
+        default: "10"
       lr:
         description: "Learning rate"
         default: "3e-5"
@@ -34,7 +34,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: train
+  group: train-${{ inputs.base || 'rapid' }}-${{ inputs.lr || 'default' }}-${{ inputs.time_classes || 'all' }}
   cancel-in-progress: false
 
 jobs:
@@ -43,7 +43,7 @@ jobs:
     timeout-minutes: 350
     env:
       BASE: ${{ inputs.base || 'rapid' }}
-      EPOCHS: ${{ inputs.epochs || '8' }}
+      EPOCHS: ${{ inputs.epochs || '10' }}
       LR: ${{ inputs.lr || '3e-5' }}
       TIME_CLASSES: ${{ inputs.time_classes || '' }}
       MAX_POSITIONS: ${{ inputs.max_positions || '0' }}
@@ -97,12 +97,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="model-$(date -u +%Y%m%d)-run${{ github.run_number }}"
+          tag="model-$(date -u +%Y%m%d)-run${{ github.run_number }}-${BASE}-lr${LR}"
           gh release create "$tag" models/me_at_chess.pt reports/latest.json \
-            --title "Model $tag ($BASE)" --notes-file reports/latest.md --latest
-          git add reports
-          git commit -m "reports: $tag [skip ci]" || true
-          git pull --rebase origin main && git push origin HEAD:main
+            --title "Model $tag" --notes-file reports/latest.md
+          # Commit the report on top of the newest main (parallel runs may have pushed meanwhile).
+          cp reports/latest.md /tmp/report.md; cp reports/latest.json /tmp/report.json
+          for attempt in 1 2 3; do
+            git fetch -q origin main && git checkout -q -f -B publish origin/main
+            mkdir -p reports/runs
+            cp /tmp/report.md "reports/runs/$tag.md"; cp /tmp/report.json "reports/runs/$tag.json"
+            git add reports
+            git commit -qm "reports: $tag [skip ci]" || break
+            git push origin HEAD:main && break
+            sleep 5
+          done
 
       - uses: actions/upload-artifact@v4
         if: always()
